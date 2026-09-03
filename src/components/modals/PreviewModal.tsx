@@ -1,24 +1,82 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type { FileItem, RootFile } from "@/types"
+import { AuthAlert } from "@/components/auth/AuthAlert"
 import { Backdrop } from "@/components/ui/Backdrop"
 import { ModalCard } from "@/components/ui/ModalCard"
 import { FileTypeIcon } from "@/components/ui/FileTypeIcon"
 import { Icon } from "@/components/ui/Icon"
+import { downloadFileToDevice, fieldErrorsFromApi, previewFileBlob } from "@/lib/api"
+import { previewKind } from "@/lib/files/map"
+import { isUuid } from "@/lib/folders/ids"
 import { ic } from "@/lib/constants/icons"
 
 export function PreviewModal({
   item,
   onClose,
-  onShare,
 }: {
   item: FileItem | RootFile
   onClose: () => void
-  onShare: () => void
 }) {
-  const isImg = ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(item.ext)
-  const isVideo = ["mp4", "mov", "webm"].includes(item.ext)
-  const isAudio = ["mp3", "wav", "ogg"].includes(item.ext)
+  const kind = previewKind(item.ext)
+  const filename = item.ext ? `${item.name}.${item.ext}` : item.name
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [text, setText] = useState<string | null>(null)
+  const [loading, setLoading] = useState(isUuid(item.id) && kind !== "other")
+  const [error, setError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => {
+    setObjectUrl(null)
+    setText(null)
+    setError(null)
+
+    if (!isUuid(item.id) || kind === "other") {
+      setLoading(false)
+      return
+    }
+
+    let revoked: string | null = null
+    let cancelled = false
+    setLoading(true)
+
+    ;(async () => {
+      try {
+        const blob = await previewFileBlob(item.id)
+        if (cancelled) return
+        if (kind === "text") {
+          setText(await blob.text())
+        } else {
+          const url = URL.createObjectURL(blob)
+          revoked = url
+          setObjectUrl(url)
+        }
+      } catch (caught) {
+        if (!cancelled) setError(fieldErrorsFromApi(caught).form)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      if (revoked) URL.revokeObjectURL(revoked)
+    }
+  }, [item.id, kind])
+
+  async function onDownload() {
+    if (!isUuid(item.id)) return
+    setDownloading(true)
+    setError(null)
+    try {
+      await downloadFileToDevice(item.id, filename)
+    } catch (caught) {
+      setError(fieldErrorsFromApi(caught).form)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <>
@@ -65,52 +123,38 @@ export function PreviewModal({
                 textOverflow: "ellipsis",
               }}
             >
-              {item.name}.{item.ext}
+              {filename}
             </div>
             <div style={{ fontSize: 12, color: "#8B90A7", marginTop: 2 }}>
-              {"owner" in item ? `${item.owner} · ` : ""}
               {item.size} · Modified {item.modified}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            {isUuid(item.id) && (
+              <button
+                type="button"
+                onClick={onDownload}
+                disabled={downloading}
+                className="action-btn"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: 12,
+                  border: "none",
+                  cursor: downloading ? "default" : "pointer",
+                  background: "#F4F6FA",
+                  color: "#5A5F7A",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                <Icon d={ic.download} size={14} color="#8B90A7" /> {downloading ? "Saving…" : "Download"}
+              </button>
+            )}
             <button
-              onClick={onShare}
-              className="action-btn"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                borderRadius: 12,
-                border: "none",
-                cursor: "pointer",
-                background: "#F4F6FA",
-                color: "#5B7CFA",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              <Icon d={ic.share} size={14} color="#5B7CFA" /> Share
-            </button>
-            <button
-              className="action-btn"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                borderRadius: 12,
-                border: "none",
-                cursor: "pointer",
-                background: "#F4F6FA",
-                color: "#5A5F7A",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              <Icon d={ic.download} size={14} color="#8B90A7" /> Download
-            </button>
-            <button
+              type="button"
               onClick={onClose}
               className="icon-btn"
               style={{
@@ -138,153 +182,79 @@ export function PreviewModal({
             justifyContent: "center",
             padding: 32,
             background: "rgba(244,246,250,0.5)",
+            minHeight: 280,
           }}
         >
-          {isImg ? (
-            <div
+          {error && (
+            <div style={{ width: "100%" }}>
+              <AuthAlert tone="error" message={error} />
+            </div>
+          )}
+          {loading && <div style={{ fontSize: 14, fontWeight: 600, color: "#8B90A7" }}>Loading preview…</div>}
+          {!loading && !error && kind === "image" && objectUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={objectUrl}
+              alt={filename}
+              style={{ maxWidth: "100%", maxHeight: 400, borderRadius: 16, objectFit: "contain" }}
+            />
+          )}
+          {!loading && !error && kind === "pdf" && objectUrl && (
+            <iframe
+              title={filename}
+              src={objectUrl}
+              style={{ width: "100%", height: 420, border: "none", borderRadius: 16, background: "#fff" }}
+            />
+          )}
+          {!loading && !error && kind === "video" && objectUrl && (
+            <video src={objectUrl} controls style={{ width: "100%", maxHeight: 400, borderRadius: 16 }} />
+          )}
+          {!loading && !error && kind === "audio" && objectUrl && (
+            <audio src={objectUrl} controls style={{ width: "100%" }} />
+          )}
+          {!loading && !error && kind === "text" && text !== null && (
+            <pre
               style={{
-                background: "#fff",
-                borderRadius: 16,
-                boxShadow: "12px 12px 28px rgba(163,177,198,0.4), -8px -8px 20px rgba(255,255,255,0.9)",
-                overflow: "hidden",
-                maxWidth: "100%",
+                width: "100%",
                 maxHeight: 400,
-              }}
-            >
-              <div
-                style={{
-                  width: 500,
-                  height: 340,
-                  background: "linear-gradient(135deg, #EEF1FF 0%, #F5EEFF 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icon d={ic.image} size={80} color="#C4C9DC" strokeWidth={0.8} />
-              </div>
-            </div>
-          ) : isVideo ? (
-            <div
-              style={{
-                background: "#1A1D2E",
+                overflow: "auto",
+                margin: 0,
+                padding: 16,
                 borderRadius: 16,
-                overflow: "hidden",
-                width: "100%",
-                maxHeight: 380,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: 340,
-                boxShadow: "12px 12px 28px rgba(163,177,198,0.4)",
+                background: "#fff",
+                fontSize: 12.5,
+                lineHeight: 1.55,
+                color: "#1A1D2E",
               }}
             >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <Icon d={ic.slides} size={28} color="#fff" />
+              {text}
+            </pre>
+          )}
+          {!loading && !error && kind === "other" && (
+            <div style={{ textAlign: "center" }}>
+              <FileTypeIcon icon={item.icon} iconBg={item.iconBg} iconColor={item.iconColor} ext={item.ext} size={72} />
+              <div style={{ fontSize: 14, color: "#8B90A7", marginTop: 16 }}>
+                Inline preview is not available for this type. Download to view it.
               </div>
-            </div>
-          ) : isAudio ? (
-            <div
-              style={{
-                background: "#F4F6FA",
-                borderRadius: 20,
-                padding: 36,
-                boxShadow: "10px 10px 24px rgba(163,177,198,0.4), -6px -6px 18px rgba(255,255,255,0.9)",
-                textAlign: "center",
-                width: "100%",
-                maxWidth: 400,
-              }}
-            >
-              <div
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 24,
-                  background: "#E8F5FF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                  boxShadow: "6px 6px 14px rgba(14,165,233,0.2)",
-                }}
-              >
-                <Icon d={ic.music} size={36} color="#0EA5E9" />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1A1D2E" }}>{item.name}</div>
-              <div style={{ marginTop: 20, height: 4, borderRadius: 4, background: "rgba(163,177,198,0.25)" }}>
-                <div
+              {isUuid(item.id) && (
+                <button
+                  type="button"
+                  onClick={onDownload}
+                  className="btn-primary"
                   style={{
-                    width: "38%",
-                    height: "100%",
-                    background: "linear-gradient(90deg,#5B7CFA,#A855F7)",
-                    borderRadius: 4,
+                    marginTop: 20,
+                    padding: "11px 28px",
+                    borderRadius: 14,
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 700,
                   }}
-                />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                <span style={{ fontSize: 11, color: "#8B90A7" }}>1:24</span>
-                <span style={{ fontSize: 11, color: "#8B90A7" }}>3:52</span>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                background: "#F4F6FA",
-                borderRadius: 20,
-                padding: 40,
-                boxShadow: "10px 10px 24px rgba(163,177,198,0.4), -6px -6px 18px rgba(255,255,255,0.9)",
-                textAlign: "center",
-                width: "100%",
-                maxWidth: 400,
-              }}
-            >
-              <div
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 24,
-                  background: item.iconBg,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                }}
-              >
-                <Icon d={ic[item.icon] || ic.doc} size={40} color={item.iconColor} strokeWidth={1.4} />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1A1D2E", marginBottom: 8 }}>
-                {item.name}.{item.ext}
-              </div>
-              <div style={{ fontSize: 13, color: "#8B90A7" }}>Preview not available for this file type.</div>
-              <button
-                className="btn-primary"
-                style={{
-                  marginTop: 20,
-                  padding: "11px 28px",
-                  borderRadius: 14,
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <Icon d={ic.download} size={15} color="#fff" /> Download to View
-              </button>
+                >
+                  Download
+                </button>
+              )}
             </div>
           )}
         </div>

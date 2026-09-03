@@ -17,10 +17,13 @@ import {
   loginRequest,
   logoutRequest,
   registerRequest,
+  resetPasswordRequest,
   setUnauthorizedHandler,
   updateMe,
+  uploadPhotoRequest,
 } from "@/lib/api"
 import { toUserAccount } from "@/lib/auth"
+import { profilePhotoSrc } from "@/lib/auth/photo"
 import { getCurrentUser } from "@/lib/data"
 import type { AuthUser, UpdateMeInput, UserAccount } from "@/types"
 import { AuthSplash } from "@/components/auth/AuthSplash"
@@ -32,20 +35,27 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  resetPassword: (token: string, password: string) => Promise<string>
   updateProfile: (input: UpdateMeInput) => Promise<AuthUser>
+  uploadPhoto: (file: File) => Promise<AuthUser>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"]
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [photoRev, setPhotoRev] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
     hydrateAuthStorage()
     setUnauthorizedHandler(() => {
       setUser(null)
+      const path = window.location.pathname
+      if (AUTH_PAGES.some((page) => path === page || path.startsWith(`${page}/`))) return
       router.replace("/login")
     })
     return () => setUnauthorizedHandler(null)
@@ -96,9 +106,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router])
 
+  const resetPassword = useCallback(async (token: string, password: string) => {
+    const message = await resetPasswordRequest(token, password)
+    setUser(null)
+    return message
+  }, [])
+
   const updateProfile = useCallback(async (input: UpdateMeInput) => {
     const next = await updateMe(input)
     setUser(next)
+    return next
+  }, [])
+
+  const uploadPhoto = useCallback(async (file: File) => {
+    const next = await uploadPhotoRequest(file)
+    setUser(next)
+    setPhotoRev(Date.now())
     return next
   }, [])
 
@@ -106,13 +129,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ready,
       user,
-      account: user ? toUserAccount(user) : getCurrentUser(),
+      account: user
+        ? { ...toUserAccount(user), image: profilePhotoSrc(user.image, photoRev) }
+        : getCurrentUser(),
       login,
       register,
       logout,
+      resetPassword,
       updateProfile,
+      uploadPhoto,
     }),
-    [ready, user, login, register, logout, updateProfile],
+    [ready, user, photoRev, login, register, logout, resetPassword, updateProfile, uploadPhoto],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

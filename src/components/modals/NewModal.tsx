@@ -17,7 +17,6 @@ export function NewModal({
   const items = [
     { icon: "folder", label: "New Folder", desc: "Create an empty folder", color: "#5B7CFA", bg: "#EEF1FF", action: () => { onClose(); onNewFolder() } },
     { icon: "upload", label: "Upload File", desc: "Upload from your device", color: "#10B981", bg: "#EEFAF5", action: () => { onClose(); onUpload() } },
-    { icon: "inbox", label: "Upload Folder", desc: "Upload an entire folder", color: "#0EA5E9", bg: "#E8F5FF", action: () => { onClose(); onUpload() } },
     { icon: "doc", label: "New Document", desc: "Create a blank doc", color: "#5B7CFA", bg: "#EEF1FF", action: onClose },
     { icon: "sheet", label: "New Spreadsheet", desc: "Create a blank spreadsheet", color: "#10B981", bg: "#EEFAF5", action: onClose },
     { icon: "slides", label: "New Presentation", desc: "Create a blank presentation", color: "#FF6B35", bg: "#FFF3E0", action: onClose },

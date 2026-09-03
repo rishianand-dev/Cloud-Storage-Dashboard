@@ -53,6 +53,7 @@ export async function resetPasswordRequest(token: string, password: string): Pro
     method: "POST",
     json: { token, password },
   })
+  clearAuthStorage()
   return data.message
 }
 
@@ -66,6 +67,17 @@ export async function updateMe(input: UpdateMeInput): Promise<AuthUser> {
   const user = await apiRequest<AuthUser>("/me", {
     method: "PATCH",
     json: input,
+  })
+  setStoredUser(user)
+  return user
+}
+
+export async function uploadPhotoRequest(file: File): Promise<AuthUser> {
+  const body = new FormData()
+  body.append("photo", file)
+  const user = await apiRequest<AuthUser>("/me/photo", {
+    method: "POST",
+    body,
   })
   setStoredUser(user)
   return user

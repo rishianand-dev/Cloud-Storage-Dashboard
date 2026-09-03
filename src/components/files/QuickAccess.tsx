@@ -5,14 +5,10 @@ import type { FileItem, QuickFolder, RootFile, ViewMode } from "@/types"
 import { Avatar } from "@/components/ui/Avatar"
 import { FileTypeIcon } from "@/components/ui/FileTypeIcon"
 import { Icon } from "@/components/ui/Icon"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { ic } from "@/lib/constants/icons"
-import { getQuickFolders, getRootFiles } from "@/lib/data"
 import { useAuth } from "@/hooks/useAuth"
 import { compareSortValues, modifiedRank, sizeToBytes } from "@/lib/sort"
-
-type DriveRow =
-  | { kind: "folder"; item: QuickFolder }
-  | { kind: "file"; item: RootFile }
 
 function ListHeader({
   isMobile,
@@ -101,12 +97,14 @@ function FolderRow({
   selected,
   isMobile,
   onSelect,
+  onOpen,
   onOpenContextMenu,
 }: {
   folder: QuickFolder
   selected: boolean
   isMobile: boolean
   onSelect: () => void
+  onOpen: () => void
   onOpenContextMenu: (e: React.MouseEvent) => void
 }) {
   const { account: user } = useAuth()
@@ -114,6 +112,7 @@ function FolderRow({
   return (
     <div
       onClick={onSelect}
+      onDoubleClick={onOpen}
       onContextMenu={onOpenContextMenu}
       style={{
         display: "grid",
@@ -164,7 +163,7 @@ function FolderRow({
           </div>
           {isMobile && (
             <div style={{ fontSize: 11.5, color: "#8B90A7", marginTop: 2 }}>
-              {folder.count} files · {folder.modified}
+              {folder.count} {folder.count === 1 ? "item" : "items"} · {folder.modified}
             </div>
           )}
         </div>
@@ -177,112 +176,9 @@ function FolderRow({
             <span style={{ fontSize: 13, color: "#5A5F7A", fontWeight: 500 }}>me</span>
           </div>
           <div style={{ fontSize: 13, color: "#5A5F7A" }}>{folder.modified}</div>
-          <div style={{ fontSize: 13, color: "#8B90A7", textAlign: "right" }}>{folder.count} items</div>
-        </>
-      )}
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onOpenContextMenu(e)
-        }}
-        style={{
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: 6,
-          borderRadius: 10,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          justifySelf: "end",
-        }}
-      >
-        <Icon d={ic.moreV} size={15} color="#C4C9DC" strokeWidth={2.5} />
-      </button>
-    </div>
-  )
-}
-
-function FileRow({
-  file,
-  isMobile,
-  isLast,
-  onOpen,
-  onOpenContextMenu,
-}: {
-  file: RootFile
-  isMobile: boolean
-  isLast: boolean
-  onOpen: () => void
-  onOpenContextMenu: (e: React.MouseEvent) => void
-}) {
-  const { account: user } = useAuth()
-
-  return (
-    <div
-      onClick={onOpen}
-      onContextMenu={onOpenContextMenu}
-      style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "minmax(0,1fr) 40px" : "minmax(0,1.6fr) 140px 150px 90px 40px",
-        gap: 12,
-        alignItems: "center",
-        padding: isMobile ? "12px 14px" : "13px 20px",
-        cursor: "pointer",
-        borderBottom: isLast ? "none" : "1px solid rgba(163,177,198,0.12)",
-        transition: "background 0.15s ease",
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.55)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 11,
-            background: file.iconBg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            boxShadow: `3px 3px 8px ${file.iconColor}18, -2px -2px 5px rgba(255,255,255,0.8)`,
-          }}
-        >
-          <Icon d={ic[file.icon] || ic.doc} size={16} color={file.iconColor} strokeWidth={1.8} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#1A1D2E",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {file.name}
-            <span style={{ color: "#8B90A7", fontWeight: 600 }}>.{file.ext}</span>
+          <div style={{ fontSize: 13, color: "#8B90A7", textAlign: "right" }}>
+            {folder.count} {folder.count === 1 ? "item" : "items"}
           </div>
-          {isMobile && (
-            <div style={{ fontSize: 11.5, color: "#8B90A7", marginTop: 2 }}>
-              {file.size} · {file.modified}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {!isMobile && (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Avatar initials={user.initials} color="#5B7CFA" size={24} />
-            <span style={{ fontSize: 13, color: "#5A5F7A", fontWeight: 500 }}>me</span>
-          </div>
-          <div style={{ fontSize: 13, color: "#5A5F7A" }}>{file.modified}</div>
-          <div style={{ fontSize: 13, color: "#8B90A7", textAlign: "right" }}>{file.size}</div>
         </>
       )}
 
@@ -314,11 +210,13 @@ function FolderCard({
   folder,
   selected,
   onSelect,
+  onOpen,
   onOpenContextMenu,
 }: {
   folder: QuickFolder
   selected: boolean
   onSelect: () => void
+  onOpen: () => void
   onOpenContextMenu: (e: React.MouseEvent) => void
 }) {
   return (
@@ -326,6 +224,7 @@ function FolderCard({
       className="quick-card"
       onContextMenu={onOpenContextMenu}
       onClick={onSelect}
+      onDoubleClick={onOpen}
       style={{
         borderRadius: 22,
         padding: "18px 16px",
@@ -379,71 +278,7 @@ function FolderCard({
         {folder.name}
       </div>
       <div style={{ fontSize: 11.5, color: "#8B90A7", marginBottom: 12 }}>
-        {folder.count} files · {folder.modified}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        {folder.files.map((f, fi) => (
-          <div
-            key={fi}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "5px 8px",
-              borderRadius: 9,
-              background: "rgba(255,255,255,0.6)",
-              boxShadow: "2px 2px 5px rgba(163,177,198,0.2), -1px -1px 3px rgba(255,255,255,0.8)",
-              cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.9)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.6)")}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 7,
-                background: `${f.iconColor}15`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Icon d={ic[f.icon] || ic.doc} size={11} color={f.iconColor} strokeWidth={2} />
-            </div>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontSize: 11,
-                fontWeight: 600,
-                color: "#1A1D2E",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {f.name}
-            </div>
-            <div
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                background: `${folder.color}15`,
-                color: folder.color,
-                padding: "1px 5px",
-                borderRadius: 4,
-                textTransform: "uppercase",
-                flexShrink: 0,
-              }}
-            >
-              {f.ext}
-            </div>
-          </div>
-        ))}
+        {folder.count} {folder.count === 1 ? "item" : "items"} · {folder.modified}
       </div>
       <div
         style={{
@@ -457,12 +292,103 @@ function FolderCard({
   )
 }
 
+function FileRow({
+  file,
+  isMobile,
+  onOpen,
+  onOpenContextMenu,
+}: {
+  file: FileItem
+  isMobile: boolean
+  onOpen: () => void
+  onOpenContextMenu: (e: React.MouseEvent) => void
+}) {
+  const { account: user } = useAuth()
+
+  return (
+    <div
+      onClick={onOpen}
+      onDoubleClick={onOpen}
+      onContextMenu={onOpenContextMenu}
+      style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "minmax(0,1fr) 40px" : "minmax(0,1.6fr) 140px 150px 90px 40px",
+        gap: 12,
+        alignItems: "center",
+        padding: isMobile ? "12px 14px" : "13px 20px",
+        cursor: "pointer",
+        transition: "background 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.55)"
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent"
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <FileTypeIcon icon={file.icon} iconBg={file.iconBg} iconColor={file.iconColor} ext={file.ext} size={36} />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#1A1D2E",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {file.name}
+            {file.ext ? <span style={{ color: "#8B90A7", fontWeight: 600 }}>.{file.ext}</span> : null}
+          </div>
+          {isMobile && (
+            <div style={{ fontSize: 11.5, color: "#8B90A7", marginTop: 2 }}>
+              {file.size} · {file.modified}
+            </div>
+          )}
+        </div>
+      </div>
+      {!isMobile && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Avatar initials={user.initials} color="#5B7CFA" size={24} />
+            <span style={{ fontSize: 13, color: "#5A5F7A", fontWeight: 500 }}>me</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#5A5F7A" }}>{file.modified}</div>
+          <div style={{ fontSize: 13, color: "#8B90A7", textAlign: "right" }}>{file.size}</div>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpenContextMenu(e)
+        }}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: 6,
+          borderRadius: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          justifySelf: "end",
+        }}
+      >
+        <Icon d={ic.moreV} size={15} color="#C4C9DC" strokeWidth={2.5} />
+      </button>
+    </div>
+  )
+}
+
 function FileCard({
   file,
   onOpen,
   onOpenContextMenu,
 }: {
-  file: RootFile
+  file: FileItem
   onOpen: () => void
   onOpenContextMenu: (e: React.MouseEvent) => void
 }) {
@@ -471,6 +397,7 @@ function FileCard({
       className="file-card"
       onContextMenu={onOpenContextMenu}
       onClick={onOpen}
+      onDoubleClick={onOpen}
       style={{
         borderRadius: 18,
         padding: "14px 14px",
@@ -480,13 +407,7 @@ function FileCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
-        <FileTypeIcon
-          icon={file.icon}
-          iconBg={file.iconBg}
-          iconColor={file.iconColor}
-          ext={file.ext}
-          size={44}
-        />
+        <FileTypeIcon icon={file.icon} iconBg={file.iconBg} iconColor={file.iconColor} ext={file.ext} size={44} />
         <button
           type="button"
           onClick={(e) => {
@@ -510,6 +431,7 @@ function FileCard({
         }}
       >
         {file.name}
+        {file.ext ? <span style={{ color: "#8B90A7", fontWeight: 600 }}>.{file.ext}</span> : null}
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
         <span style={{ fontSize: 11, color: "#C4C9DC" }}>{file.size}</span>
@@ -526,9 +448,16 @@ export function QuickAccess({
   sortBy,
   sortAscending,
   onSortColumn,
+  folders,
+  files = [],
   selectedFolderId,
+  title = "Folders",
+  emptyIcon = "folder",
+  emptyMsg = "No folders yet",
+  emptyDesc = "Create a folder to start organizing your files.",
   onSelectFolder,
-  onOpenPreview,
+  onOpenFolder,
+  onOpenFile,
   onOpenContextMenu,
 }: {
   isMobile: boolean
@@ -537,22 +466,27 @@ export function QuickAccess({
   sortBy: string
   sortAscending: boolean
   onSortColumn: (column: string) => void
+  folders: QuickFolder[]
+  files?: FileItem[]
   selectedFolderId: string
+  title?: string
+  emptyIcon?: string
+  emptyMsg?: string
+  emptyDesc?: string
   onSelectFolder: (folder: QuickFolder) => void
-  onOpenPreview: (file: RootFile) => void
+  onOpenFolder: (folder: QuickFolder) => void
+  onOpenFile?: (file: FileItem) => void
   onOpenContextMenu: (
     e: React.MouseEvent,
     type: "file" | "folder",
     item: FileItem | QuickFolder | RootFile,
   ) => void
 }) {
-  const quickFolders = getQuickFolders()
-  const rootFiles = getRootFiles()
-
   const rows = useMemo(() => {
+    type DriveRow = { kind: "folder"; item: QuickFolder } | { kind: "file"; item: FileItem }
     const combined: DriveRow[] = [
-      ...quickFolders.map((item) => ({ kind: "folder" as const, item })),
-      ...rootFiles.map((item) => ({ kind: "file" as const, item })),
+      ...folders.map((item) => ({ kind: "folder" as const, item })),
+      ...files.map((item) => ({ kind: "file" as const, item })),
     ]
 
     const valueFor = (row: DriveRow): string | number => {
@@ -572,15 +506,17 @@ export function QuickAccess({
     }
 
     return [...combined].sort((a, b) => compareSortValues(valueFor(a), valueFor(b), sortAscending))
-  }, [quickFolders, rootFiles, sortBy, sortAscending])
+  }, [folders, files, sortBy, sortAscending])
 
   return (
     <section style={{ marginBottom: 36 }}>
       <div style={{ fontSize: 19, fontWeight: 700, color: "#1A1D2E", marginBottom: 18, letterSpacing: "-0.2px" }}>
-        Quick Access
+        {title}
       </div>
 
-      {viewMode === "list" ? (
+      {rows.length === 0 ? (
+        <EmptyState icon={emptyIcon} msg={emptyMsg} desc={emptyDesc} />
+      ) : viewMode === "list" ? (
         <div className="neu-card" style={{ borderRadius: 22, background: "#F4F6FA", overflow: "hidden" }}>
           <ListHeader
             isMobile={isMobile}
@@ -588,33 +524,32 @@ export function QuickAccess({
             sortAscending={sortAscending}
             onSortColumn={onSortColumn}
           />
-          {rows.map((row, index) =>
-            row.kind === "folder" ? (
-              <div
-                key={row.item.id}
-                style={{
-                  borderBottom: index < rows.length - 1 ? "1px solid rgba(163,177,198,0.12)" : "none",
-                }}
-              >
+          {rows.map((row, index) => (
+            <div
+              key={`${row.kind}-${row.item.id}`}
+              style={{
+                borderBottom: index < rows.length - 1 ? "1px solid rgba(163,177,198,0.12)" : "none",
+              }}
+            >
+              {row.kind === "folder" ? (
                 <FolderRow
                   folder={row.item}
                   selected={selectedFolderId === row.item.id}
                   isMobile={isMobile}
                   onSelect={() => onSelectFolder(row.item)}
+                  onOpen={() => onOpenFolder(row.item)}
                   onOpenContextMenu={(e) => onOpenContextMenu(e, "folder", row.item)}
                 />
-              </div>
-            ) : (
-              <FileRow
-                key={row.item.id}
-                file={row.item}
-                isMobile={isMobile}
-                isLast={index === rows.length - 1}
-                onOpen={() => onOpenPreview(row.item)}
-                onOpenContextMenu={(e) => onOpenContextMenu(e, "file", row.item)}
-              />
-            ),
-          )}
+              ) : (
+                <FileRow
+                  file={row.item}
+                  isMobile={isMobile}
+                  onOpen={() => onOpenFile?.(row.item)}
+                  onOpenContextMenu={(e) => onOpenContextMenu(e, "file", row.item)}
+                />
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <div
@@ -631,17 +566,18 @@ export function QuickAccess({
           {rows.map((row) =>
             row.kind === "folder" ? (
               <FolderCard
-                key={row.item.id}
+                key={`folder-${row.item.id}`}
                 folder={row.item}
                 selected={selectedFolderId === row.item.id}
                 onSelect={() => onSelectFolder(row.item)}
+                onOpen={() => onOpenFolder(row.item)}
                 onOpenContextMenu={(e) => onOpenContextMenu(e, "folder", row.item)}
               />
             ) : (
               <FileCard
-                key={row.item.id}
+                key={`file-${row.item.id}`}
                 file={row.item}
-                onOpen={() => onOpenPreview(row.item)}
+                onOpen={() => onOpenFile?.(row.item)}
                 onOpenContextMenu={(e) => onOpenContextMenu(e, "file", row.item)}
               />
             ),

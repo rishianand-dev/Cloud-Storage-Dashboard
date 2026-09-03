@@ -309,10 +309,10 @@ export const sectionMeta: Record<NavId, SectionMeta> = {
   },
   trash: {
     title: "Trash",
-    subtitle: "Deleted files (30-day hold)",
+    subtitle: "Soft-deleted folders",
     emptyIcon: "trash",
     emptyMsg: "Trash is empty",
-    emptyDesc: "Deleted files will be held here for 30 days.",
+    emptyDesc: "Folders you delete will appear here until you delete them forever.",
   },
   archive: {
     title: "Archive",

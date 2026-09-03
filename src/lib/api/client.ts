@@ -1,10 +1,9 @@
 import { ApiRequestError } from "@/lib/api/errors"
+import { getApiBaseUrl } from "@/lib/api/config"
 import { clearAuthStorage, getAccessToken, getRefreshToken, setTokens } from "@/lib/api/storage"
 import type { ApiError, ApiSuccess, TokenPair } from "@/types"
 
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "https://file-storage-seven-neon.vercel.app/api"
-).replace(/\/$/, "")
+export const API_BASE_URL = getApiBaseUrl()
 
 const PUBLIC_AUTH_PATHS = new Set([
   "/auth/register",
@@ -91,7 +90,7 @@ export async function apiRequest<T>(
     headers.set("Content-Type", "application/json")
   }
 
-  if (!skipAuth) {
+  if (!skipAuth && !isPublicAuthPath(path)) {
     const accessToken = getAccessToken()
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`)
   }
@@ -139,4 +138,55 @@ export async function apiRequest<T>(
   }
 
   return success.data
+}
+
+export async function apiBlobRequest(
+  path: string,
+  options: RequestInit = {},
+  flags: RequestFlags = {},
+): Promise<Blob> {
+  const skipAuth = flags.skipAuth ?? isPublicAuthPath(path)
+  const headers = new Headers(options.headers)
+
+  if (!skipAuth && !isPublicAuthPath(path)) {
+    const accessToken = getAccessToken()
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`)
+  }
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    })
+  } catch {
+    throw new ApiRequestError("Unable to reach the File Storage API", 0)
+  }
+
+  if (response.status === 401 && !isPublicAuthPath(path)) {
+    if (!flags.skipRefresh) {
+      try {
+        await refreshSession()
+        return apiBlobRequest(path, options, { ...flags, skipRefresh: true })
+      } catch (error) {
+        forceLocalLogout()
+        throw error instanceof ApiRequestError
+          ? error
+          : new ApiRequestError("Invalid refresh token", 401)
+      }
+    }
+    forceLocalLogout()
+  }
+
+  if (!response.ok) {
+    const body = await readJson(response)
+    const errorBody = body as ApiError | null
+    throw new ApiRequestError(
+      errorBody?.message || `Request failed (${response.status})`,
+      response.status,
+      errorBody?.details,
+    )
+  }
+
+  return response.blob()
 }

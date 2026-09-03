@@ -8,7 +8,7 @@ import { getSectionMeta } from "@/lib/data"
 import { QuickAccess } from "@/components/files/QuickAccess"
 import { FileBrowser } from "@/components/files/FileBrowser"
 import { SharedPanel } from "@/components/files/SharedPanel"
-import type { FileItem, QuickFolder, RootFile } from "@/types"
+import type { FileItem, FolderBreadcrumb, QuickFolder, RootFile } from "@/types"
 
 export function SectionContent({
   section,
@@ -21,12 +21,22 @@ export function SectionContent({
   isTablet,
   starredFiles,
   selectedFolderId,
+  driveFolders,
+  trashFolders,
+  trashCount,
+  driveFiles,
+  trashFiles,
+  recentFiles,
+  breadcrumbs,
   filterRef,
   sortRef,
   onSetModal,
   onSetViewMode,
   onToggleStar,
   onSelectFolder,
+  onOpenFolder,
+  onGoToFolder,
+  onEmptyTrash,
   onOpenPreview,
   onOpenShare,
   onOpenContextMenu,
@@ -41,12 +51,22 @@ export function SectionContent({
   isTablet: boolean
   starredFiles: Set<string>
   selectedFolderId: string
+  driveFolders: QuickFolder[]
+  trashFolders: QuickFolder[]
+  trashCount: number
+  driveFiles: FileItem[]
+  trashFiles: FileItem[]
+  recentFiles: FileItem[]
+  breadcrumbs: FolderBreadcrumb[]
   filterRef: RefObject<HTMLButtonElement | null>
   sortRef: RefObject<HTMLButtonElement | null>
   onSetModal: (m: ModalType) => void
   onSetViewMode: (m: ViewMode) => void
   onToggleStar: (id: string) => void
   onSelectFolder: (folder: QuickFolder) => void
+  onOpenFolder: (folder: QuickFolder) => void
+  onGoToFolder: (id: string | null) => void
+  onEmptyTrash: () => void
   onOpenPreview: (file: FileItem | RootFile) => void
   onOpenShare: (item: { name: string }) => void
   onOpenContextMenu: (
@@ -81,10 +101,35 @@ export function SectionContent({
           >
             {meta.title}
           </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: "#8B90A7", fontWeight: 500 }}>Home</span>
-            <span style={{ color: "#C4C9DC" }}>/</span>
-            <span style={{ fontSize: 12.5, color: "#5B7CFA", fontWeight: 600 }}>{meta.title}</span>
+            {section === "drive" && breadcrumbs ? (
+              breadcrumbs.map((crumb) => (
+                <span key={crumb.id ?? "root"} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "#C4C9DC" }}>/</span>
+                  <button
+                    type="button"
+                    onClick={() => onGoToFolder(crumb.id)}
+                    style={{
+                      fontSize: 12.5,
+                      color: crumb.id === (breadcrumbs[breadcrumbs.length - 1]?.id ?? null) ? "#5B7CFA" : "#8B90A7",
+                      fontWeight: 600,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {crumb.name}
+                  </button>
+                </span>
+              ))
+            ) : (
+              <>
+                <span style={{ color: "#C4C9DC" }}>/</span>
+                <span style={{ fontSize: 12.5, color: "#5B7CFA", fontWeight: 600 }}>{meta.title}</span>
+              </>
+            )}
           </div>
           <div style={{ fontSize: 12.5, color: "#8B90A7", marginTop: 4 }}>{meta.subtitle}</div>
         </div>
@@ -257,23 +302,29 @@ export function SectionContent({
             <Icon d={ic.alert} size={18} color="#EF4444" />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1A1D2E" }}>Files are deleted after 30 days</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#1A1D2E" }}>Items stay in Trash until you delete them</div>
             <div style={{ fontSize: 12, color: "#8B90A7", marginTop: 2 }}>
-              2 items will be permanently removed on Feb 14
+              {trashCount === 0
+                ? "Trash is empty"
+                : `${trashCount} ${trashCount === 1 ? "item" : "items"} ready to delete forever`}
             </div>
           </div>
           <button
+            type="button"
+            onClick={onEmptyTrash}
+            disabled={trashCount === 0}
             className="action-btn"
             style={{
               padding: "8px 14px",
               borderRadius: 10,
               border: "none",
-              cursor: "pointer",
+              cursor: trashCount === 0 ? "default" : "pointer",
               color: "#EF4444",
               fontSize: 12.5,
               fontWeight: 700,
               background: "#F4F6FA",
               flexShrink: 0,
+              opacity: trashCount === 0 ? 0.45 : 1,
             }}
           >
             Empty Trash
@@ -347,16 +398,63 @@ export function SectionContent({
           sortBy={sortBy}
           sortAscending={sortAscending}
           onSortColumn={onSortColumn}
+          folders={driveFolders}
+          files={driveFiles}
           selectedFolderId={selectedFolderId}
-          onSelectFolder={(folder) => {
-            onSelectFolder(folder)
-          }}
-          onOpenPreview={onOpenPreview}
+          title={breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 1]?.name ?? "My Drive" : "My Drive"}
+          emptyMsg="This folder is empty"
+          emptyDesc="Upload a file or create a folder to get started."
+          onSelectFolder={onSelectFolder}
+          onOpenFolder={onOpenFolder}
+          onOpenFile={onOpenPreview}
           onOpenContextMenu={onOpenContextMenu}
         />
       )}
 
-      {section !== "drive" && (
+      {section === "trash" && (
+        <QuickAccess
+          isMobile={isMobile}
+          isTablet={isTablet}
+          viewMode={viewMode}
+          sortBy={sortBy}
+          sortAscending={sortAscending}
+          onSortColumn={onSortColumn}
+          folders={trashFolders}
+          files={trashFiles}
+          selectedFolderId={selectedFolderId}
+          title="Trash"
+          emptyIcon="trash"
+          emptyMsg="Trash is empty"
+          emptyDesc="Files and folders you delete will appear here until you delete them forever."
+          onSelectFolder={onSelectFolder}
+          onOpenFolder={onSelectFolder}
+          onOpenContextMenu={onOpenContextMenu}
+        />
+      )}
+
+      {section === "recent" && (
+        <QuickAccess
+          isMobile={isMobile}
+          isTablet={isTablet}
+          viewMode={viewMode}
+          sortBy={sortBy}
+          sortAscending={sortAscending}
+          onSortColumn={onSortColumn}
+          folders={[]}
+          files={recentFiles}
+          selectedFolderId={selectedFolderId}
+          title="Recent files"
+          emptyIcon="clock"
+          emptyMsg="No recent files"
+          emptyDesc="Files you upload will appear here."
+          onSelectFolder={onSelectFolder}
+          onOpenFolder={onOpenFolder}
+          onOpenFile={onOpenPreview}
+          onOpenContextMenu={onOpenContextMenu}
+        />
+      )}
+
+      {section !== "drive" && section !== "trash" && section !== "recent" && (
         <FileBrowser
           section={section}
           viewMode={viewMode}

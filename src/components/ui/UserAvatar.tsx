@@ -1,3 +1,7 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
 export function UserAvatar({
   name,
   initials,
@@ -11,12 +15,21 @@ export function UserAvatar({
   size?: number
   radius?: number
 }) {
+  const [failed, setFailed] = useState(false)
   const borderRadius = radius ?? Math.round(size * 0.31)
-  if (image) {
+
+  useEffect(() => {
+    setFailed(false)
+  }, [image])
+
+  const showImage = Boolean(image) && !failed
+
+  if (showImage) {
     return (
       <img
-        src={image}
+        src={image!}
         alt={name}
+        onError={() => setFailed(true)}
         style={{
           width: size,
           height: size,

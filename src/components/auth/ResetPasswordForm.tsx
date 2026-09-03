@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation"
 import { AuthAlert } from "@/components/auth/AuthAlert"
 import { AuthField } from "@/components/auth/AuthField"
 import { Icon } from "@/components/ui/Icon"
-import { fieldErrorsFromApi, resetPasswordRequest } from "@/lib/api"
+import { fieldErrorsFromApi } from "@/lib/api"
+import { useAuth } from "@/hooks/useAuth"
 import { validatePassword } from "@/lib/auth"
 import { ic } from "@/lib/constants/icons"
 
 export function ResetPasswordForm() {
   const router = useRouter()
+  const { resetPassword } = useAuth()
   const [token, setToken] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
@@ -42,7 +44,7 @@ export function ResetPasswordForm() {
 
     setPending(true)
     try {
-      const message = await resetPasswordRequest(token, password)
+      const message = await resetPassword(token, password)
       router.replace(`/login?notice=${encodeURIComponent(message)}`)
     } catch (error) {
       const parsed = fieldErrorsFromApi(error)

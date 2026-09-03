@@ -13,6 +13,11 @@ export type ModalType =
   | "notifications"
   | "preview"
   | "rename"
+  | "moveFolder"
+  | "confirmTrash"
+  | "confirmPermanent"
+  | "confirmEmptyTrash"
+  | "confirmRestore"
   | null
 
 export interface FileItem {
@@ -77,6 +82,70 @@ export interface ContextMenu {
   item: FileItem | QuickFolder | RootFile | null
 }
 
+export type Folder = {
+  id: string
+  name: string
+  color: string | null
+  parent_id: string | null
+  owner_id: string
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SoftDeleteFolderResult = {
+  id: string
+  deleted_folders: number
+}
+
+export type PermanentDeleteFolderResult = {
+  id: string
+  deleted_folders: number
+  deleted_files: number
+}
+
+export type RenameTarget = {
+  id: string
+  name: string
+  kind: "file" | "folder"
+}
+
+export type FolderBreadcrumb = {
+  id: string | null
+  name: string
+}
+
+export type FolderMoveDestination = {
+  id: string | null
+  name: string
+  depth: number
+}
+
+export type FileRecord = {
+  id: string
+  name: string
+  extension: string
+  mime_type: string
+  storage_name: string
+  storage_path: string
+  size: string
+  folder_id: string | null
+  owner_id: string
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type PermanentDeleteFileResult = {
+  id: string
+}
+
+export type ItemTarget = {
+  kind: "folder" | "file"
+  id: string
+  name: string
+}
+
 export interface NavItem {
   id: NavId
   label: string
@@ -129,7 +198,11 @@ export type ApiError = { status: "error"; message: string; details?: ApiErrorDet
 
 export type TokenPair = { accessToken: string; refreshToken: string }
 
-export type AuthResult = { user: AuthUser } & TokenPair
+export type AuthResult = {
+  user: AuthUser
+  accessToken: string
+  refreshToken: string
+}
 
 export type UpdateMeInput = {
   name?: string

@@ -3,6 +3,8 @@
 import type { ReactNode } from "react"
 import type { NavId } from "@/types"
 import { useDashboard } from "@/hooks/useDashboard"
+import { useFolders } from "@/hooks/useFolders"
+import { useFiles } from "@/hooks/useFiles"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { RightSidebar } from "@/components/layout/RightSidebar"
@@ -10,6 +12,7 @@ import { Header } from "@/components/layout/Header"
 import { StatusBar } from "@/components/layout/StatusBar"
 import { SectionContent } from "@/components/files/SectionContent"
 import { ModalsHost } from "@/components/layout/ModalsHost"
+import { addFileCounts } from "@/lib/files/map"
 
 export function DashboardShell({ section, children }: { section?: NavId; children?: ReactNode }) {
   const {
@@ -33,11 +36,18 @@ export function DashboardShell({ section, children }: { section?: NavId; childre
     openShare,
     openPreview,
     openContextMenu,
+    openFolder,
+    openEmptyTrash,
     profileRef,
     bellRef,
     filterRef,
     sortRef,
   } = useDashboard()
+  const { currentFolders, trashFolders, trashCount: folderTrashCount, breadcrumbs, goToFolder } = useFolders()
+  const { currentFiles, trashFiles, recentFiles, trashCount: fileTrashCount, files } = useFiles()
+  const trashCount = folderTrashCount + fileTrashCount
+  const driveFolders = addFileCounts(currentFolders, files, false)
+  const trashFoldersWithFiles = addFileCounts(trashFolders, files, true)
 
   const { isMobile, isTablet, hideSidebars } = useMediaQuery()
   const showRight = hideSidebars ? true : rightSidebarVisible
@@ -130,6 +140,13 @@ export function DashboardShell({ section, children }: { section?: NavId; childre
             isTablet={isTablet}
             starredFiles={starredFiles}
             selectedFolderId={selectedFolder.id}
+            driveFolders={driveFolders}
+            trashFolders={trashFoldersWithFiles}
+            trashCount={trashCount}
+            driveFiles={currentFiles}
+            trashFiles={trashFiles}
+            recentFiles={recentFiles}
+            breadcrumbs={breadcrumbs}
             filterRef={filterRef}
             sortRef={sortRef}
             onSetModal={setModal}
@@ -140,6 +157,13 @@ export function DashboardShell({ section, children }: { section?: NavId; childre
               if (hideSidebars) setRightOpen(true)
               else if (!rightSidebarVisible) setRightSidebarVisible(true)
             }}
+            onOpenFolder={(folder) => {
+              openFolder(folder)
+              if (hideSidebars) setRightOpen(true)
+              else if (!rightSidebarVisible) setRightSidebarVisible(true)
+            }}
+            onGoToFolder={goToFolder}
+            onEmptyTrash={openEmptyTrash}
             onOpenPreview={openPreview}
             onOpenShare={openShare}
             onOpenContextMenu={openContextMenu}

@@ -8,9 +8,10 @@ Next.js App Router + React 19 + Tailwind CSS v4 premium cloud storage dashboard.
 pnpm dev
 ```
 
-Runs on [http://localhost:5173](http://localhost:5173). Auth and user requests go to [https://file-storage-seven-neon.vercel.app/api](https://file-storage-seven-neon.vercel.app/api).
+Runs on [http://localhost:5173](http://localhost:5173). Auth and user requests use `VITE_API_URL` / `NEXT_PUBLIC_API_URL`.
 
-Set `NEXT_PUBLIC_API_URL` if the API base is different.
+- Local default: `http://localhost:3001/api`
+- Current `.env.local` / prod example: [https://file-storage-seven-neon.vercel.app/api](https://file-storage-seven-neon.vercel.app/api)
 
 ## Project Structure
 

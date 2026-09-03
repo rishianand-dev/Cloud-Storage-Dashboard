@@ -7,6 +7,8 @@ import { ic } from "@/lib/constants/icons"
 import { getNavItems } from "@/lib/data"
 import { UserAvatar } from "@/components/ui/UserAvatar"
 import { useAuth } from "@/hooks/useAuth"
+import { useFolders } from "@/hooks/useFolders"
+import { useFiles } from "@/hooks/useFiles"
 import type { NavId } from "@/types"
 
 export function Sidebar({
@@ -20,8 +22,12 @@ export function Sidebar({
   onClose?: () => void
   isDrawer: boolean
 }) {
-  const navItems = getNavItems()
   const { account } = useAuth()
+  const { trashCount: folderTrashCount } = useFolders()
+  const { trashCount: fileTrashCount } = useFiles()
+  const navItems = getNavItems().map((item) =>
+    item.id === "trash" ? { ...item, badge: folderTrashCount + fileTrashCount } : item,
+  )
   const storagePct = Math.round((account.storageUsedGb / account.storageTotalGb) * 100)
 
   return (

@@ -14,12 +14,15 @@ import {
 import type {
   ContextMenu,
   FileItem,
+  ItemTarget,
   ModalType,
   QuickFolder,
+  RenameTarget,
   RootFile,
   ViewMode,
 } from "@/types"
-import { getDefaultStarredIds, getQuickFolders } from "@/lib/data"
+import { getDefaultStarredIds } from "@/lib/data"
+import { useFolders } from "@/hooks/useFolders"
 
 interface DashboardContextValue {
   viewMode: ViewMode
@@ -32,6 +35,7 @@ interface DashboardContextValue {
   toggleStar: (id: string) => void
   selectedFolder: QuickFolder
   setSelectedFolder: (folder: QuickFolder) => void
+  openFolder: (folder: QuickFolder) => void
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
   rightOpen: boolean
@@ -43,12 +47,21 @@ interface DashboardContextValue {
   closeAll: () => void
   shareTarget: { name: string } | null
   previewTarget: FileItem | RootFile | null
-  renameTarget: { name: string } | null
+  renameTarget: RenameTarget | null
+  moveTarget: ItemTarget | null
+  trashTarget: ItemTarget | null
+  permanentTarget: ItemTarget | null
+  restoreTarget: ItemTarget | null
   contextMenu: ContextMenu | null
   setContextMenu: (menu: ContextMenu | null) => void
   openShare: (item: { name: string }) => void
   openPreview: (item: FileItem | RootFile) => void
-  openRename: (item: { name: string }) => void
+  openRename: (item: RenameTarget) => void
+  openMove: (item: ItemTarget) => void
+  openTrash: (item: ItemTarget) => void
+  openPermanent: (item: ItemTarget) => void
+  openRestore: (item: ItemTarget) => void
+  openEmptyTrash: () => void
   openContextMenu: (
     e: React.MouseEvent,
     type: "file" | "folder",
@@ -63,9 +76,9 @@ interface DashboardContextValue {
 const DashboardContext = createContext<DashboardContextValue | null>(null)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
+  const { selectedFolder, setSelectedFolder, openFolder } = useFolders()
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [starredFiles, setStarredFiles] = useState<Set<string>>(() => getDefaultStarredIds())
-  const [selectedFolder, setSelectedFolder] = useState<QuickFolder>(() => getQuickFolders()[0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
   const [rightSidebarVisible, setRightSidebarVisible] = useState(true)
@@ -74,7 +87,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<ModalType>(null)
   const [shareTarget, setShareTarget] = useState<{ name: string } | null>(null)
   const [previewTarget, setPreviewTarget] = useState<FileItem | RootFile | null>(null)
-  const [renameTarget, setRenameTarget] = useState<{ name: string } | null>(null)
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null)
+  const [moveTarget, setMoveTarget] = useState<ItemTarget | null>(null)
+  const [trashTarget, setTrashTarget] = useState<ItemTarget | null>(null)
+  const [permanentTarget, setPermanentTarget] = useState<ItemTarget | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<ItemTarget | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
 
   const profileRef = useRef<HTMLDivElement>(null)
@@ -125,9 +142,38 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setContextMenu(null)
   }, [])
 
-  const openRename = useCallback((item: { name: string }) => {
+  const openRename = useCallback((item: RenameTarget) => {
     setRenameTarget(item)
     setModal("rename")
+    setContextMenu(null)
+  }, [])
+
+  const openMove = useCallback((item: ItemTarget) => {
+    setMoveTarget(item)
+    setModal("moveFolder")
+    setContextMenu(null)
+  }, [])
+
+  const openTrash = useCallback((item: ItemTarget) => {
+    setTrashTarget(item)
+    setModal("confirmTrash")
+    setContextMenu(null)
+  }, [])
+
+  const openPermanent = useCallback((item: ItemTarget) => {
+    setPermanentTarget(item)
+    setModal("confirmPermanent")
+    setContextMenu(null)
+  }, [])
+
+  const openRestore = useCallback((item: ItemTarget) => {
+    setRestoreTarget(item)
+    setModal("confirmRestore")
+    setContextMenu(null)
+  }, [])
+
+  const openEmptyTrash = useCallback(() => {
+    setModal("confirmEmptyTrash")
     setContextMenu(null)
   }, [])
 
@@ -158,6 +204,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       toggleStar,
       selectedFolder,
       setSelectedFolder,
+      openFolder,
       sidebarOpen,
       setSidebarOpen,
       rightOpen,
@@ -170,11 +217,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       shareTarget,
       previewTarget,
       renameTarget,
+      moveTarget,
+      trashTarget,
+      permanentTarget,
+      restoreTarget,
       contextMenu,
       setContextMenu,
       openShare,
       openPreview,
       openRename,
+      openMove,
+      openTrash,
+      openPermanent,
+      openRestore,
+      openEmptyTrash,
       openContextMenu,
       profileRef,
       bellRef,
@@ -190,6 +246,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       starredFiles,
       toggleStar,
       selectedFolder,
+      setSelectedFolder,
+      openFolder,
       sidebarOpen,
       rightOpen,
       rightSidebarVisible,
@@ -198,10 +256,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       shareTarget,
       previewTarget,
       renameTarget,
+      moveTarget,
+      trashTarget,
+      permanentTarget,
+      restoreTarget,
       contextMenu,
       openShare,
       openPreview,
       openRename,
+      openMove,
+      openTrash,
+      openPermanent,
+      openRestore,
+      openEmptyTrash,
       openContextMenu,
     ],
   )
